@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UrlShortener.Api.Data;
 using UrlShortener.Api.Models;
+using UrlShortener.Api.Services;
 
 namespace UrlShortener.Api.Endpoints;
 
@@ -73,6 +74,85 @@ public static class UrlEndpoints
             }
 
             return Results.Ok(url);
+        });
+
+        app.MapGet("/{code}", async (
+            string code,
+            AppDbContext db,
+            UrlCacheService cache,
+            CancellationToken cancellationToken) =>
+        {
+            var cachedUrl = await cache.GetAsync(
+                code,
+                cancellationToken);
+
+            if (cachedUrl is not null)
+            {
+                if (!cachedUrl.IsActive)
+                {
+                    return Results.NotFound(new
+                    {
+                        error = "Short URL is inactive."
+                    });
+                }
+
+                if (cachedUrl.ExpiresAt is not null &&
+                    cachedUrl.ExpiresAt <= DateTimeOffset.UtcNow)
+                {
+                    return Results.NotFound(new
+                    {
+                        error = "Short URL has expired."
+                    });
+                }
+
+                return Results.Redirect(
+                    cachedUrl.DestinationUrl,
+                    permanent: false);
+            }
+
+            var url = await db.ShortUrls
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x => x.Code == code,
+                    cancellationToken);
+
+            if (url is null)
+            {
+                return Results.NotFound(new
+                {
+                    error = "Short URL not found."
+                });
+            }
+
+            if (!url.IsActive)
+            {
+                return Results.NotFound(new
+                {
+                    error = "Short URL is inactive."
+                });
+            }
+
+            if (url.ExpiresAt is not null &&
+                url.ExpiresAt <= DateTimeOffset.UtcNow)
+            {
+                return Results.NotFound(new
+                {
+                    error = "Short URL has expired."
+                });
+            }
+
+            await cache.SetAsync(
+                code,
+                new UrlCacheService.CachedUrl(
+                    url.DestinationUrl,
+                    url.IsActive,
+                    url.ExpiresAt),
+                TimeSpan.FromHours(24),
+                cancellationToken);
+
+            return Results.Redirect(
+                url.DestinationUrl,
+                permanent: false);
         });
     }
 
