@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace UrlShortener.Api.Data;
 
@@ -7,10 +8,24 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext(string[] args)
     {
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false)
+            .AddJsonFile(
+                $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development"}.json",
+                optional: true)
+            .AddUserSecrets<AppDbContextFactory>(optional: true)
+            .AddEnvironmentVariables()
+            .Build();
+
+        var connectionString =
+            configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException(
+                "Postgres connection string is missing.");
+
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
 
-        optionsBuilder.UseNpgsql(
-            "Host=localhost;Port=5432;Database=urlshortener;Username=urlshortener;Password=development_password");
+        optionsBuilder.UseNpgsql(connectionString);
 
         return new AppDbContext(optionsBuilder.Options);
     }
