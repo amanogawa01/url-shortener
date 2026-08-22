@@ -1,7 +1,13 @@
 @UrlShortener.Api_HostAddress = https://localhost:7240
 
+### Health check
+
 GET {{UrlShortener.Api_HostAddress}}/health
 Accept: application/json
+
+###
+
+### Create a short URL
 
 POST {{UrlShortener.Api_HostAddress}}/api/urls
 Content-Type: application/json
@@ -9,6 +15,10 @@ Content-Type: application/json
 {
     "url": "https://example.com"
 }
+
+###
+
+### Get URL information
 
 GET {{UrlShortener.Api_HostAddress}}/api/urls/REPLACE_WITH_CODE
 Accept: application/json
