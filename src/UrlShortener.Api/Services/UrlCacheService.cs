@@ -16,15 +16,12 @@ public sealed class UrlCacheService
         string code,
         CancellationToken cancellationToken = default)
     {
-        var value = await _database.StringGetAsync(
+        RedisValue value = await _database.StringGetAsync(
             $"url:{code}");
 
-        if (value.IsNullOrEmpty)
-        {
-            return null;
-        }
-
-        return JsonSerializer.Deserialize<CachedUrl>(
+        return value.IsNullOrEmpty
+            ? null
+            : JsonSerializer.Deserialize<CachedUrl>(
             value.ToString());
     }
 
@@ -34,7 +31,7 @@ public sealed class UrlCacheService
         TimeSpan expiration,
         CancellationToken cancellationToken = default)
     {
-        var value = JsonSerializer.Serialize(url);
+        string value = JsonSerializer.Serialize(url);
 
         await _database.StringSetAsync(
             $"url:{code}",

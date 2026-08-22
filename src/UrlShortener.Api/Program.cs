@@ -4,7 +4,7 @@ using UrlShortener.Api.Data;
 using UrlShortener.Api.Endpoints;
 using UrlShortener.Api.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -14,7 +14,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 {
-    var connectionString =
+    string connectionString =
         builder.Configuration.GetConnectionString("Redis")
         ?? throw new InvalidOperationException(
             "Redis connection string is missing.");
@@ -23,10 +23,11 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 builder.Services.AddSingleton<UrlCacheService>();
+builder.Services.AddSingleton<RateLimitService>();
 
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {

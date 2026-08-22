@@ -11,13 +11,38 @@ public static class UrlEndpoints
     {
         app.MapPost("/api/urls", async (
             CreateUrlRequest request,
+            HttpContext httpContext,
             AppDbContext db,
+            RateLimitService rateLimiter,
             CancellationToken cancellationToken) =>
         {
+            string clientIp =
+                httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown";
+
+            RateLimitService.RateLimitResult rateLimit =
+                await rateLimiter.CheckAsync(
+                    $"create:{clientIp}",
+                    limit: 10,
+                    window: TimeSpan.FromMinutes(1));
+
+            httpContext.Response.Headers["X-RateLimit-Limit"] = "10";
+            httpContext.Response.Headers["X-RateLimit-Remaining"] =
+                rateLimit.Remaining.ToString();
+
+            if (!rateLimit.Allowed)
+            {
+                httpContext.Response.Headers["Retry-After"] =
+                    Math.Ceiling(rateLimit.RetryAfter.TotalSeconds).ToString();
+
+                return Results.StatusCode(
+                    StatusCodes.Status429TooManyRequests);
+            }
+
             if (!Uri.TryCreate(
                     request.Url,
                     UriKind.Absolute,
-                    out var destination))
+                    out Uri? destination))
             {
                 return Results.BadRequest(new
                 {
@@ -33,7 +58,7 @@ public static class UrlEndpoints
                 });
             }
 
-            var code = GenerateCode();
+            string code = GenerateCode();
 
             var shortUrl = new ShortUrl
             {
@@ -59,7 +84,7 @@ public static class UrlEndpoints
             AppDbContext db,
             CancellationToken cancellationToken) =>
         {
-            var url = await db.ShortUrls
+            ShortUrl? url = await db.ShortUrls
                 .AsNoTracking()
                 .SingleOrDefaultAsync(
                     x => x.Code == code,
@@ -82,9 +107,10 @@ public static class UrlEndpoints
             UrlCacheService cache,
             CancellationToken cancellationToken) =>
         {
-            var cachedUrl = await cache.GetAsync(
-                code,
-                cancellationToken);
+            UrlCacheService.CachedUrl? cachedUrl =
+                await cache.GetAsync(
+                    code,
+                    cancellationToken);
 
             if (cachedUrl is not null)
             {
@@ -110,7 +136,7 @@ public static class UrlEndpoints
                     permanent: false);
             }
 
-            var url = await db.ShortUrls
+            ShortUrl? url = await db.ShortUrls
                 .AsNoTracking()
                 .SingleOrDefaultAsync(
                     x => x.Code == code,
@@ -163,7 +189,7 @@ public static class UrlEndpoints
 
         Span<char> code = stackalloc char[7];
 
-        for (var i = 0; i < code.Length; i++)
+        for (int i = 0; i < code.Length; i++)
         {
             code[i] = characters[Random.Shared.Next(characters.Length)];
         }
