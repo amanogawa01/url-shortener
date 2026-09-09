@@ -21,12 +21,10 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 
     return ConnectionMultiplexer.Connect(connectionString);
 });
-
 builder.Services.AddSingleton<UrlCacheService>();
 builder.Services.AddSingleton<RateLimitService>();
-
-builder.Services.AddOpenApi();
-
+builder.Services.AddSingleton<AnalyticsEventPublisher>();
+builder.Services.AddSingleton<IpHashService>();
 WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())

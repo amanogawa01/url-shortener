@@ -103,8 +103,11 @@ public static class UrlEndpoints
 
         app.MapGet("/{code}", async (
             string code,
+            HttpContext httpContext,
             AppDbContext db,
             UrlCacheService cache,
+            AnalyticsEventPublisher analytics,
+            IpHashService ipHasher,
             CancellationToken cancellationToken) =>
         {
             UrlCacheService.CachedUrl? cachedUrl =
@@ -130,6 +133,13 @@ public static class UrlEndpoints
                         error = "Short URL has expired."
                     });
                 }
+
+                await analytics.PublishClickAsync(
+                    code,
+                    httpContext.Request.Headers.Referer.ToString(),
+                    httpContext.Request.Headers.UserAgent.ToString(),
+                    ipHasher.Hash(
+                        httpContext.Connection.RemoteIpAddress?.ToString()));
 
                 return Results.Redirect(
                     cachedUrl.DestinationUrl,
@@ -175,6 +185,13 @@ public static class UrlEndpoints
                     url.ExpiresAt),
                 TimeSpan.FromHours(24),
                 cancellationToken);
+
+            await analytics.PublishClickAsync(
+                code,
+                httpContext.Request.Headers.Referer.ToString(),
+                httpContext.Request.Headers.UserAgent.ToString(),
+                ipHasher.Hash(
+                    httpContext.Connection.RemoteIpAddress?.ToString()));
 
             return Results.Redirect(
                 url.DestinationUrl,

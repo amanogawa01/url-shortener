@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     : DbContext(options)
 {
     public DbSet<ShortUrl> ShortUrls => Set<ShortUrl>();
+    public DbSet<ClickEvent> ClickEvents => Set<ClickEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
             entity.Property(x => x.ClickCount)
                 .HasDefaultValue(0);
+        });
+        modelBuilder.Entity<ClickEvent>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Code)
+                .HasMaxLength(32)
+                .IsRequired();
+
+            entity.Property(x => x.Timestamp)
+                .IsRequired();
+
+            entity.Property(x => x.Referrer)
+                .HasMaxLength(2048);
+
+            entity.Property(x => x.UserAgent)
+                .HasMaxLength(1024);
+
+            entity.Property(x => x.IpHash)
+                .HasMaxLength(128);
         });
     }
 }
